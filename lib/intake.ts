@@ -1,5 +1,4 @@
 import { createHash } from "crypto";
-import { PDFParse } from "pdf-parse";
 import { saveCandidate } from "./data";
 import type {
   Candidate,
@@ -28,13 +27,13 @@ async function extractDocumentText(file: File): Promise<string> {
   const name = file.name.toLowerCase();
 
   if (file.type === "application/pdf" || name.endsWith(".pdf")) {
-    const parser = new PDFParse({ data: bytes });
-    try {
-      const parsed = await parser.getText();
-      return normalizeText(parsed.text);
-    } finally {
-      await parser.destroy();
-    }
+    // unpdf ships a serverless-friendly pdfjs build (no canvas, no external
+    // worker files for Vercel's tracer to miss) — pdf-parse crashed in the
+    // lambda reaching for @napi-rs/canvas even though it worked locally.
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const pdf = await getDocumentProxy(new Uint8Array(bytes));
+    const { text } = await extractText(pdf, { mergePages: true });
+    return normalizeText(text);
   }
 
   if (
