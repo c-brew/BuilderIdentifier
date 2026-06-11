@@ -22,3 +22,16 @@ export function isAllowedEmail(email: string): boolean {
     pattern.startsWith("@") ? normalized.endsWith(pattern) : normalized === pattern,
   );
 }
+
+// Guard for routes that spend money (LLM calls). Returns a 403 Response if
+// the access cookie is missing or no longer allowed, otherwise null.
+export async function requireAccess(): Promise<Response | null> {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const email = cookieStore.get(ACCESS_COOKIE)?.value;
+  if (email && isAllowedEmail(email)) return null;
+  return Response.json(
+    { error: "Reviewer access required. Enter your email on the app first." },
+    { status: 403 },
+  );
+}

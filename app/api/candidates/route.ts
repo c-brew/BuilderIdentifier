@@ -4,6 +4,10 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const { requireAccess } = await import("@/lib/access");
+  const denied = await requireAccess();
+  if (denied) return denied;
+
   const formData = await request.formData();
   const file = formData.get("resume");
 

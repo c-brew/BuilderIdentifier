@@ -6,6 +6,10 @@ export const maxDuration = 300;
 const VALID_ROLES: TargetRole[] = ["senior-consultant", "manager"];
 
 export async function POST(request: Request) {
+  const { requireAccess } = await import("@/lib/access");
+  const denied = await requireAccess();
+  if (denied) return denied;
+
   const { candidateId, targetRole } = (await request.json()) as {
     candidateId?: string;
     targetRole?: string;
