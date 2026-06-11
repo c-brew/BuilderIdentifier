@@ -23,120 +23,124 @@
   --radius-badge: 2px;
 }
 
-body {
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  textarea {
+    font: inherit;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+@layer components {
+  /* Running state — pulsing 1px accent border (DESIGN.md §2 motion) */
+  @keyframes border-pulse {
+    0%, 100% { border-color: var(--color-accent); }
+    50% { border-color: var(--color-border); }
+  }
+  .running-pulse {
+    animation: border-pulse 1.5s ease-in-out infinite;
+  }
 
-button,
-textarea {
-  font: inherit;
-}
+  /* 11px caps label (DESIGN.md §2 type) */
+  .label-caps {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-2);
+  }
 
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
+  .surface {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+  }
 
-/* Running state — pulsing 1px accent border (DESIGN.md §2 motion) */
-@keyframes border-pulse {
-  0%, 100% { border-color: var(--color-accent); }
-  50% { border-color: var(--color-border); }
-}
-.running-pulse {
-  animation: border-pulse 1.5s ease-in-out infinite;
-}
+  .governance {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    padding: 12px 16px;
+    color: var(--color-text-2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
 
-/* 11px caps label (DESIGN.md §2 type) */
-.label-caps {
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-2);
-}
+  .btn {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 500;
+    transition:
+      background-color 150ms ease-out,
+      border-color 150ms ease-out,
+      color 150ms ease-out;
+  }
 
-.surface {
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-surface);
-}
+  .btn-primary {
+    border: 1px solid var(--color-accent);
+    background: var(--color-accent);
+    color: white;
+  }
 
-.governance {
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-surface);
-  padding: 12px 16px;
-  color: var(--color-text-2);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
+  .btn-secondary {
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text);
+  }
 
-.btn {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  padding: 0 14px;
-  font-size: 13px;
-  font-weight: 500;
-  transition:
-    background-color 150ms ease-out,
-    border-color 150ms ease-out,
-    color 150ms ease-out;
-}
+  .btn-secondary:hover {
+    border-color: var(--color-border-strong);
+  }
 
-.btn-primary {
-  border: 1px solid var(--color-accent);
-  background: var(--color-accent);
-  color: white;
-}
+  .badge {
+    border-radius: 2px;
+    padding: 3px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
 
-.btn-secondary {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text);
-}
+  .badge-ok {
+    background: color-mix(in srgb, var(--color-ok) 12%, transparent);
+    color: var(--color-ok);
+  }
 
-.btn-secondary:hover {
-  border-color: var(--color-border-strong);
-}
+  .badge-warn {
+    background: color-mix(in srgb, var(--color-warn) 12%, transparent);
+    color: var(--color-warn);
+  }
 
-.badge {
-  border-radius: 2px;
-  padding: 3px 6px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
+  .badge-accent {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+  }
 
-.badge-ok {
-  background: color-mix(in srgb, var(--color-ok) 12%, transparent);
-  color: var(--color-ok);
-}
-
-.badge-warn {
-  background: color-mix(in srgb, var(--color-warn) 12%, transparent);
-  color: var(--color-warn);
-}
-
-.badge-accent {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
-}
-
-.badge-ai {
-  background: color-mix(in srgb, var(--color-ai) 12%, transparent);
-  color: var(--color-ai);
+  .badge-ai {
+    background: color-mix(in srgb, var(--color-ai) 12%, transparent);
+    color: var(--color-ai);
+  }
 }

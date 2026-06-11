@@ -84,6 +84,23 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         })}
       </section>
 
+      {run.blindedPacket ? (
+        <section className="surface p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="label-caps text-ai">As the assessor saw it</h2>
+            <span className="badge badge-ai">blinded input</span>
+          </div>
+          <p className="mt-3 max-w-[70ch] text-sm leading-6 text-text-2">
+            The exact packet the Evidence Assessor received: no name, no contact details, no
+            URLs — opaque tokens and scrubbed text only. The scorecard above shows the
+            candidate&apos;s name because blinding is model-facing; the scorer never saw it.
+          </p>
+          <pre className="mt-4 max-h-[420px] overflow-auto bg-surface-2 p-4 font-mono text-xs leading-5 text-text-2">
+            {JSON.stringify(run.blindedPacket, null, 2)}
+          </pre>
+        </section>
+      ) : null}
+
       <section className="surface p-5">
         <h2 className="label-caps">Audit log</h2>
         <div className="mt-4 overflow-x-auto">
