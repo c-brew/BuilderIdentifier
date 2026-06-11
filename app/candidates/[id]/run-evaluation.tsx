@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { EvaluationRun, StreamEvent } from "@/lib/types";
 
 export default function RunEvaluation({ candidateId }: { candidateId: string }) {
+  const router = useRouter();
   const [events, setEvents] = useState<StreamEvent[]>([]);
   const [running, setRunning] = useState(false);
   const [run, setRun] = useState<EvaluationRun | null>(null);
@@ -30,6 +32,7 @@ export default function RunEvaluation({ candidateId }: { candidateId: string }) 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let completedRun: EvaluationRun | null = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -41,12 +44,17 @@ export default function RunEvaluation({ candidateId }: { candidateId: string }) 
         if (!line.trim()) continue;
         const event = JSON.parse(line) as StreamEvent;
         setEvents((prev) => [...prev, event]);
-        if (event.type === "run_complete") setRun(event.run);
+        if (event.type === "run_complete") {
+          completedRun = event.run;
+          setRun(event.run);
+        }
         if (event.type === "run_error") setError(event.error);
       }
     }
 
     setRunning(false);
+    // The whole point of the run is the scorecard — take the reviewer there.
+    if (completedRun) router.push(`/runs/${completedRun.id}`);
   }
 
   return (
@@ -54,7 +62,8 @@ export default function RunEvaluation({ candidateId }: { candidateId: string }) 
       <p className="label-caps">Run control</p>
       <h2 className="mt-2 text-base font-semibold">Evaluation pipeline</h2>
       <p className="mt-3 text-sm leading-6 text-text-2">
-        Streams blinded scoring, verification, synthesis, and audit entries. Demo mode uses local fixture logic.
+        Live checks, blinded scoring (two passes), synthesis, and audit entries stream below.
+        Takes about a minute; you&apos;ll land on the scorecard when it completes.
       </p>
       <button className="btn btn-primary mt-5 w-full" disabled={running} onClick={start}>
         {running ? "Running..." : "Run evaluation"}

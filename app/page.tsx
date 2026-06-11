@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { EST_COST_PER_RUN, MODEL_ID } from "@/lib/config";
 import { listCandidates } from "@/lib/data";
 import UploadResume from "./upload-resume";
 
@@ -10,21 +9,10 @@ export default async function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[1100px] flex-col gap-8 px-6 py-8">
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <p className="label-caps">Candidate queue</p>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-normal">AI Builder Evaluator</h1>
-        </div>
-        <div className="flex gap-2">
-          <Link className="btn btn-secondary" href="/rubric">
-            View rubric
-          </Link>
-        </div>
+      <header>
+        <p className="label-caps">Candidate queue</p>
+        <h1 className="mt-2 text-[28px] font-semibold tracking-normal">AI Builder Evaluator</h1>
       </header>
-
-      <div className="governance">
-        MODEL {MODEL_ID} · BLIND-SCORED · {EST_COST_PER_RUN}/RUN · RECOMMENDS, NEVER DECIDES
-      </div>
 
       <UploadResume />
 

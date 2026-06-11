@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCandidate } from "@/lib/data";
+import { listRuns } from "@/lib/store";
 import RunEvaluation from "./run-evaluation";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const candidate = await getCandidate(id);
   if (!candidate) notFound();
+  const runs = await listRuns(id);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[1100px] flex-col gap-8 px-6 py-8">
@@ -44,6 +46,38 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
           </div>
         </div>
         <RunEvaluation candidateId={candidate.id} />
+      </section>
+
+      <section className="surface p-5">
+        <h2 className="label-caps">Past runs</h2>
+        {runs.length === 0 ? (
+          <p className="mt-3 text-sm text-text-3">No evaluations yet.</p>
+        ) : (
+          <div className="mt-4 grid gap-2">
+            {runs.map((run) => (
+              <Link
+                className="flex items-center justify-between gap-4 border border-border p-3 hover:border-border-strong"
+                href={`/runs/${run.id}`}
+                key={run.id}
+              >
+                <span className="font-mono text-xs">{run.id}</span>
+                <span className="text-xs text-text-2">
+                  {new Date(run.startedAt).toLocaleString()}
+                </span>
+                <span className="flex items-center gap-3">
+                  {run.reviewerDecision ? (
+                    <span className="badge badge-accent">decided</span>
+                  ) : (
+                    <span className="badge badge-warn">awaiting decision</span>
+                  )}
+                  <span className="font-mono text-xs text-text-2">
+                    ${run.totalCostUsd.toFixed(4)}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
