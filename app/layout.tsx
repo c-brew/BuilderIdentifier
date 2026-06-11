@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { ACCESS_COOKIE, isAllowedEmail } from "@/lib/access";
 import { EST_COST_PER_RUN, MODEL_ID } from "@/lib/config";
+import AccessGate from "./access-gate";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,10 +11,15 @@ export const metadata: Metadata = {
   description: "Verdict-free candidate evidence evaluator.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const accessEmail = cookieStore.get(ACCESS_COOKIE)?.value;
+  const authorized = accessEmail ? isAllowedEmail(accessEmail) : false;
+
   return (
     <html lang="en">
       <body>
+        {authorized ? null : <AccessGate />}
         <header className="border-b border-border bg-surface">
           <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-4 px-6 py-3">
             <Link className="text-sm font-semibold" href="/">

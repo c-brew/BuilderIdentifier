@@ -2,7 +2,7 @@
 
 A multi-agent system that evaluates AI Builder candidates against the KPMG job description — and structurally cannot make the hiring decision. Four isolated agents verify and score blinded evidence; a human reviewer reads the cited scorecard and records the call. Built for the [AI Builder Candidate Assignment](./AI_Builder_Candidate_Assignment_Brief%20copy.pdf).
 
-**Live demo:** _(Vercel URL — pending deploy)_
+**Live demo:** https://builder-identifier.vercel.app (reviewer email required — `@kpmg.ca` or the listed contact)
 **Video:** _(link)_
 **Scoping doc + AI-use disclosure:** [docs/scoping.md](docs/scoping.md)
 
