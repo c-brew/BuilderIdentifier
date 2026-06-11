@@ -42,7 +42,7 @@ export default function AccessGate() {
             autoFocus
             className="w-full border border-border bg-surface-2 p-3 text-sm text-text outline-none focus:border-accent"
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@kpmg.ca"
+            placeholder="Email"
             type="email"
             value={email}
           />
