@@ -5,7 +5,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { callAgent, type CallAgentResult } from "./anthropic";
-import { EVIDENCE_PARITY_NOTE, RUBRIC } from "./rubric";
+import { EVIDENCE_PARITY_NOTE, ROLES, rubricFor } from "./rubric";
 import type {
   AssessorResult,
   BlindedEvidencePacket,
@@ -14,6 +14,7 @@ import type {
   ProjectFacts,
   ProjectVerifierResult,
   SynthesizerBrief,
+  TargetRole,
 } from "./types";
 
 const ConfidenceSchema = z.enum(["high", "medium", "low"]);
@@ -134,18 +135,23 @@ export interface BlindedVerifierFindings {
   identitySummary: string;
 }
 
-// Static system prompt with the rubric, marked as a cache breakpoint —
-// the consistency re-run (pass 2) reuses the identical prefix.
-const ASSESSOR_SYSTEM: Anthropic.Messages.TextBlockParam[] = [
-  {
-    type: "text",
-    text: `You are the Evidence Assessor in a candidate-evaluation pipeline.
+// Role-specific system prompt with that role's rubric, marked as a cache
+// breakpoint — the consistency re-run (pass 2) reuses the identical prefix.
+function assessorSystem(role: TargetRole): Anthropic.Messages.TextBlockParam[] {
+  const roleInfo = ROLES[role];
+  return [
+    {
+      type: "text",
+      text: `You are the Evidence Assessor in a candidate-evaluation pipeline for the KPMG AI Builder role.
+
+TARGET ROLE: ${roleInfo.label} (${roleInfo.jdRef} of the job description). ${roleInfo.framing}
+Calibrate every score to this role's bar — the same evidence can merit different scores against different role expectations.
 
 You receive an ANONYMIZED evidence packet. Names, contact details, schools, and URLs have been removed before you see it; items are referenced by opaque tokens (evidence-1, project-2). This is intentional — do not speculate about identity, and treat [redacted] markers as deliberately removed PII.
 
-Score the evidence against this rubric (1–5 per dimension):
+Score the evidence against this role's rubric (1–5 per dimension):
 
-${JSON.stringify(RUBRIC, null, 2)}
+${JSON.stringify(rubricFor(role), null, 2)}
 
 ${EVIDENCE_PARITY_NOTE}
 
@@ -154,21 +160,23 @@ Rules:
 - Every score MUST include a citation: a verbatim quote copied exactly from the evidence text (not paraphrased), so a human can find and challenge it.
 - Score all four dimensions, each exactly once.
 - State per-dimension confidence honestly: thin or ambiguous evidence means low confidence and a middling score, not a generous guess.`,
-    cache_control: { type: "ephemeral" },
-  },
-];
+      cache_control: { type: "ephemeral" },
+    },
+  ];
+}
 
 export function runEvidenceAssessor(
   packet: BlindedEvidencePacket,
   findings: BlindedVerifierFindings,
   pass: 1 | 2,
+  role: TargetRole,
 ): Promise<CallAgentResult<AssessorResult>> {
   return callAgent({
     stage: `evidenceAssessor:${pass}`,
-    system: ASSESSOR_SYSTEM,
+    system: assessorSystem(role),
     input: { evidencePacket: packet, verificationFindings: findings },
     schema: AssessorSchema,
-    summary: `Blind evidence scored against ${RUBRIC.length} JD-mapped dimensions (pass ${pass}).`,
+    summary: `Blind evidence scored against the ${ROLES[role].label} rubric (pass ${pass}).`,
     thinking: true,
     maxTokens: 6000,
   });
@@ -186,7 +194,7 @@ const SynthesizerSchema = z.object({
   divergenceCount: z.number().int(),
 });
 
-const SYNTHESIZER_SYSTEM = `You compile agent outputs into a brief for a human reviewer who makes the actual decision.
+const SYNTHESIZER_SYSTEM = `You compile agent outputs into a brief for a human reviewer who makes the actual decision. The input tells you which target role this evaluation was scored against (Senior Consultant or Manager) — frame the brief against that role's bar and name the role once in the brief.
 
 You MUST NOT produce a hire/no-hire recommendation, a verdict, a ranking, or advice to advance, hold, or decline. Your output is evidence and confidence — the human decides. Refer to the candidate only as "the candidate" (the evaluation is anonymized end to end).
 
@@ -199,6 +207,8 @@ Produce:
 
 export interface SynthesizerInput {
   candidateToken: string;
+  targetRole: string; // role label + JD reference, e.g. "Manager (Appendix B)"
+  roleFraming: string;
   evidenceCount: number;
   projectVerifier: ProjectVerifierResult;
   identityVerifier: IdentityVerifierResult;

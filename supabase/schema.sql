@@ -89,6 +89,9 @@ create table evaluation_runs (
   candidate_id     text not null references candidates(id),
   status           text not null default 'running'
                    check (status in ('running', 'complete', 'error')),
+  target_role      text not null default 'senior-consultant'
+                   check (target_role in ('senior-consultant', 'manager')),
+                   -- which JD appendix this run was scored against (brief: A or B)
   model            text not null,               -- exact model ID, disclosed in UI
   pricing_version  text not null,               -- pricing table stamp for honest cost math
   blinded_packet   jsonb,                       -- BlindedEvidencePacket, verbatim

@@ -15,7 +15,7 @@ import { gatherIdentityFacts, gatherProjectFacts } from "./checks";
 import { MODEL_ID, PRICING_VERSION } from "./config";
 import { totalCost } from "./cost";
 import { getCandidate } from "./data";
-import { RUBRIC } from "./rubric";
+import { ROLES, rubricFor } from "./rubric";
 import { saveRun } from "./store";
 import type {
   AgentOutputRecord,
@@ -28,6 +28,7 @@ import type {
   ProjectFacts,
   RubricScore,
   StreamEvent,
+  TargetRole,
   VerificationCheckRow,
 } from "./types";
 
@@ -35,6 +36,7 @@ type Emit = (event: StreamEvent) => void;
 
 export async function runEvaluation(
   candidateId: string,
+  targetRole: TargetRole = "senior-consultant",
   emit?: Emit,
 ): Promise<EvaluationRun> {
   const candidate = await getCandidate(candidateId);
@@ -110,8 +112,8 @@ export async function runEvaluation(
   const assessorPasses: AssessorResult[] = [];
   for (const pass of [1, 2] as const) {
     emit?.({ type: "stage_start", stage: `evidenceAssessor:${pass}` });
-    const call = await runEvidenceAssessor(blinded.packet, findings, pass);
-    const assessor = normalizeAssessor(call.result, pass);
+    const call = await runEvidenceAssessor(blinded.packet, findings, pass, targetRole);
+    const assessor = normalizeAssessor(call.result, pass, targetRole);
     assessorPasses.push(assessor);
     record(call.entry);
     agentOutputs.push({
@@ -127,12 +129,14 @@ export async function runEvaluation(
     });
   }
 
-  const divergence = calculateDivergence(assessorPasses);
+  const divergence = calculateDivergence(assessorPasses, targetRole);
 
   // Stage 3 — Synthesizer
   emit?.({ type: "stage_start", stage: "synthesizer" });
   const synthCall = await runSynthesizer({
     candidateToken: blinded.packet.candidateToken,
+    targetRole: `${ROLES[targetRole].label} (${ROLES[targetRole].jdRef})`,
+    roleFraming: ROLES[targetRole].framing,
     evidenceCount: blinded.packet.evidence.length,
     projectVerifier: project,
     identityVerifier: identity,
@@ -154,6 +158,7 @@ export async function runEvaluation(
     candidateId,
     candidateName: candidate.pii.name,
     status: "complete",
+    targetRole,
     model: MODEL_ID,
     pricingVersion: PRICING_VERSION,
     scorecard: {
@@ -330,8 +335,12 @@ function blindVerifierFindings(
 }
 
 // Guarantee exactly one score per rubric dimension, in rubric order.
-function normalizeAssessor(result: AssessorResult, pass: 1 | 2): AssessorResult {
-  const scores: RubricScore[] = RUBRIC.map(({ dimension }) => {
+function normalizeAssessor(
+  result: AssessorResult,
+  pass: 1 | 2,
+  role: TargetRole,
+): AssessorResult {
+  const scores: RubricScore[] = rubricFor(role).map(({ dimension }) => {
     const score = result.scores.find((item) => item.dimension === dimension);
     if (!score) {
       throw new Error(`evidenceAssessor:${pass} returned no score for ${dimension}`);
@@ -341,8 +350,8 @@ function normalizeAssessor(result: AssessorResult, pass: 1 | 2): AssessorResult 
   return { scores, confidence: result.confidence };
 }
 
-function calculateDivergence(passes: AssessorResult[]): DivergenceFlag[] {
-  return RUBRIC.map(({ dimension }) => {
+function calculateDivergence(passes: AssessorResult[], role: TargetRole): DivergenceFlag[] {
+  return rubricFor(role).map(({ dimension }) => {
     const scoreA = passes[0].scores.find((s) => s.dimension === dimension)?.score ?? 0;
     const scoreB = passes[1].scores.find((s) => s.dimension === dimension)?.score ?? 0;
     return {

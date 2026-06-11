@@ -1,6 +1,8 @@
 // The contracts everything codes against (ARCHITECTURE.md §5).
 
 export type EvidenceKind = "code" | "demo" | "writeup" | "case-study";
+// The two roles from the assignment brief: Appendix A and Appendix B.
+export type TargetRole = "senior-consultant" | "manager";
 export type LinkKind = "github" | "linkedin" | "portfolio" | "other";
 export type Confidence = "high" | "medium" | "low";
 export type Dimension =
@@ -233,6 +235,7 @@ export interface EvaluationRun {
   candidateId: string;
   candidateName?: string; // joined in by the API — blinding is model-facing only
   status: "running" | "complete" | "error";
+  targetRole: TargetRole; // which JD appendix this run was scored against
   model: string;
   pricingVersion: string;
   scorecard: {

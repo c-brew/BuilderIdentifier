@@ -14,6 +14,7 @@ type DbRun = {
   id: string;
   candidate_id: string;
   status: "running" | "complete" | "error";
+  target_role: "senior-consultant" | "manager" | null;
   model: string;
   pricing_version: string;
   blinded_packet: unknown;
@@ -38,6 +39,7 @@ export async function saveRun(run: EvaluationRun): Promise<EvaluationRun> {
       id: run.id,
       candidate_id: run.candidateId,
       status: run.status,
+      target_role: run.targetRole,
       model: run.model,
       pricing_version: run.pricingVersion,
       blinded_packet: run.blindedPacket,
@@ -173,6 +175,7 @@ async function hydrateRun(run: DbRun): Promise<EvaluationRun> {
     candidateId: run.candidate_id,
     candidateName: (pii as { name?: string } | null)?.name,
     status: run.status,
+    targetRole: run.target_role ?? "senior-consultant",
     model: run.model,
     pricingVersion: run.pricing_version,
     scorecard: {

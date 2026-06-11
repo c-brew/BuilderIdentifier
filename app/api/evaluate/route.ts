@@ -1,13 +1,21 @@
 import { runEvaluation } from "@/lib/pipeline";
-import type { StreamEvent } from "@/lib/types";
+import type { StreamEvent, TargetRole } from "@/lib/types";
 
 export const maxDuration = 300;
 
+const VALID_ROLES: TargetRole[] = ["senior-consultant", "manager"];
+
 export async function POST(request: Request) {
-  const { candidateId } = (await request.json()) as { candidateId?: string };
+  const { candidateId, targetRole } = (await request.json()) as {
+    candidateId?: string;
+    targetRole?: string;
+  };
   if (!candidateId) {
     return Response.json({ error: "candidateId is required" }, { status: 400 });
   }
+  const role: TargetRole = VALID_ROLES.includes(targetRole as TargetRole)
+    ? (targetRole as TargetRole)
+    : "senior-consultant";
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -17,7 +25,7 @@ export async function POST(request: Request) {
       };
 
       try {
-        await runEvaluation(candidateId, send);
+        await runEvaluation(candidateId, role, send);
       } catch (error) {
         send({
           type: "run_error",

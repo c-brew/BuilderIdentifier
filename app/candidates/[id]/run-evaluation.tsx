@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { EvaluationRun, StreamEvent } from "@/lib/types";
+import { ROLES, TARGET_ROLES } from "@/lib/rubric";
+import type { EvaluationRun, StreamEvent, TargetRole } from "@/lib/types";
 
 export default function RunEvaluation({ candidateId }: { candidateId: string }) {
   const router = useRouter();
+  const [targetRole, setTargetRole] = useState<TargetRole>("senior-consultant");
   const [events, setEvents] = useState<StreamEvent[]>([]);
   const [running, setRunning] = useState(false);
   const [run, setRun] = useState<EvaluationRun | null>(null);
@@ -20,7 +22,7 @@ export default function RunEvaluation({ candidateId }: { candidateId: string }) 
     const response = await fetch("/api/evaluate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ candidateId }),
+      body: JSON.stringify({ candidateId, targetRole }),
     });
 
     if (!response.ok || !response.body) {
@@ -65,8 +67,34 @@ export default function RunEvaluation({ candidateId }: { candidateId: string }) 
         Live checks, blinded scoring (two passes), synthesis, and audit entries stream below.
         Takes about a minute; you&apos;ll land on the scorecard when it completes.
       </p>
+      <fieldset className="mt-5" disabled={running}>
+        <legend className="label-caps">Target role</legend>
+        <div className="mt-2 grid gap-2">
+          {TARGET_ROLES.map((role) => (
+            <label
+              className={`flex cursor-pointer items-center justify-between gap-3 border p-3 text-sm ${
+                targetRole === role ? "border-accent" : "border-border hover:border-border-strong"
+              }`}
+              key={role}
+            >
+              <span>
+                {ROLES[role].label}
+                <span className="ml-2 font-mono text-xs text-text-3">{ROLES[role].jdRef}</span>
+              </span>
+              <input
+                checked={targetRole === role}
+                className="accent-[var(--color-accent)]"
+                name="target-role"
+                onChange={() => setTargetRole(role)}
+                type="radio"
+                value={role}
+              />
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <button className="btn btn-primary mt-5 w-full" disabled={running} onClick={start}>
-        {running ? "Running..." : "Run evaluation"}
+        {running ? "Running..." : `Run evaluation · ${ROLES[targetRole].label}`}
       </button>
       {error ? <p className="mt-4 text-sm text-err">{error}</p> : null}
       <div className="mt-5 max-h-[360px] overflow-auto border-t border-border pt-4">

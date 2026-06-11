@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getRun } from "@/lib/store";
-import { RUBRIC } from "@/lib/rubric";
+import { ROLES, rubricFor } from "@/lib/rubric";
 import DecisionForm from "./decision-form";
 
 export default async function RunPage({ params }: { params: Promise<{ id: string }> }) {
@@ -9,14 +9,17 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   if (!run) notFound();
   const synthesis = run.scorecard.synthesis;
   const firstPass = run.scorecard.passes[0]?.scores ?? [];
+  const rubric = rubricFor(run.targetRole);
+  const role = ROLES[run.targetRole];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[1100px] flex-col gap-8 px-6 py-8">
       <header>
-        <p className="label-caps">Scorecard</p>
+        <p className="label-caps">Scorecard · {role.label}</p>
         <h1 className="mt-2 text-[28px] font-semibold">{run.candidateName}</h1>
         <p className="mt-2 font-mono text-xs text-text-3">
-          {run.id} · {run.model} · ${run.totalCostUsd.toFixed(4)}
+          {run.id} · {run.model} · scored against {role.label} ({role.jdRef}) · $
+          {run.totalCostUsd.toFixed(4)}
         </p>
       </header>
 
@@ -53,14 +56,14 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
       <section className="grid gap-4">
         {firstPass.map((score) => {
-          const rubric = RUBRIC.find((item) => item.dimension === score.dimension);
+          const dimension = rubric.find((item) => item.dimension === score.dimension);
           const divergence = run.scorecard.divergence.find((item) => item.dimension === score.dimension);
           return (
             <article className="surface p-5" key={score.dimension}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-semibold">{rubric?.label ?? score.dimension}</h2>
-                  <p className="mt-2 text-sm italic text-text-2">{rubric?.anchor}</p>
+                  <h2 className="text-base font-semibold">{dimension?.label ?? score.dimension}</h2>
+                  <p className="mt-2 text-sm italic text-text-2">{dimension?.anchor}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-xl">{score.score} / 5</p>
