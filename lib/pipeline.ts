@@ -108,7 +108,13 @@ export async function runEvaluation(
 
   // Stage 2 — Evidence Assessor on blinded input only, twice (consistency).
   // Sequential on an identical prompt so pass 2 reads the prompt cache.
-  const findings = blindVerifierFindings(blinded.packet, project, identity);
+  const findings = blindVerifierFindings(
+    blinded.packet,
+    candidate.projects.map((item) => item.title),
+    projectFacts,
+    project,
+    identity,
+  );
   const assessorPasses: AssessorResult[] = [];
   for (const pass of [1, 2] as const) {
     emit?.({ type: "stage_start", stage: `evidenceAssessor:${pass}` });
@@ -315,19 +321,42 @@ async function collectIdentityFacts(
 // ---------------------------------------------------------------------------
 
 // What the assessor may see of verifier output: token-keyed, no URLs/titles.
+// packet.projects[i] corresponds to candidate.projects[i] (blind.ts maps in
+// order), so projectTitles[i] names each blinded token. Facts and the LLM
+// verifier's output are matched by that title — fixture facts are hand-authored
+// and the verifier may reorder — with the index as fallback. Activity is copied
+// from the deterministic facts — never from LLM prose — stripped to the numeric
+// subset so no timestamp crosses the blinding boundary.
 function blindVerifierFindings(
   packet: EvaluationRun["blindedPacket"] & object,
+  projectTitles: string[],
+  facts: ProjectFacts[],
   project: Awaited<ReturnType<typeof runProjectVerifier>>["result"],
   identity: Awaited<ReturnType<typeof runIdentityVerifier>>["result"],
 ): BlindedVerifierFindings {
   return {
     projects: packet.projects.map((blindedProject, index) => {
-      const verified = project.projects[index];
+      const title = projectTitles[index];
+      const fact =
+        facts.find((item) => item.projectTitle === title) ?? facts[index];
+      const verified =
+        project.projects.find((item) => item.projectTitle === title) ??
+        project.projects[index];
+      const activity = fact?.repo?.activity;
       return {
         token: blindedProject.token,
         liveStatus: verified?.liveStatus ?? "no-url",
         codeQualitySignals: verified?.codeQualitySignals ?? [],
         concerns: verified?.concerns ?? [],
+        activity: activity
+          ? {
+              daysSinceLastCommit: activity.daysSinceLastCommit,
+              commitsLast90Days: activity.commitsLast90Days,
+              commitsLast365Days: activity.commitsLast365Days,
+              activitySpanDays: activity.activitySpanDays,
+              sampleCapped: activity.sampleCapped,
+            }
+          : null,
       };
     }),
     identitySummary: `${identity.links.filter((l) => l.verdict === "verified").length}/${identity.links.length} candidate links verified as consistent with one identity.`,

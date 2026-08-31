@@ -1,7 +1,45 @@
 import { notFound } from "next/navigation";
 import { getRun } from "@/lib/store";
 import { ROLES, rubricFor } from "@/lib/rubric";
+import type { RepoActivity, VerificationCheckRow } from "@/lib/types";
 import DecisionForm from "./decision-form";
+
+// detail is jsonb from verification_checks; runs recorded before commit
+// activity existed carry {recentCommitCount, lastCommitIso} flat instead of
+// an activity block — both shapes must render, so read defensively.
+function describeCheckActivity(check: VerificationCheckRow): string {
+  if (check.kind !== "github_repo") return "—";
+  const detail = (check.detail ?? {}) as {
+    activity?: RepoActivity;
+    lastCommitIso?: string; // legacy shape
+    recentCommitCount?: number; // legacy shape
+  };
+
+  const activity = detail.activity;
+  if (activity) {
+    const parts: string[] = [];
+    if (activity.daysSinceLastCommit !== undefined) {
+      parts.push(`last commit ${activity.daysSinceLastCommit}d before check`);
+    }
+    const atLeast = activity.sampleCapped ? "≥" : "";
+    parts.push(`${atLeast}${activity.commitsLast365Days} commits in prior 365d`);
+    if (activity.activitySpanDays !== undefined) {
+      parts.push(`${activity.activitySpanDays}d span in sample`);
+    }
+    return parts.join(" · ");
+  }
+
+  // Legacy rows: compute the age at view time and say so — the check itself
+  // never measured it.
+  if (detail.lastCommitIso) {
+    const t = new Date(detail.lastCommitIso).getTime();
+    if (Number.isFinite(t)) {
+      const days = Math.max(0, Math.floor((Date.now() - t) / 86_400_000));
+      return `last commit ~${days}d ago (age computed at view time)`;
+    }
+  }
+  return "no activity data recorded";
+}
 
 export default async function RunPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -98,6 +136,49 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           <pre className="mt-4 max-h-[420px] overflow-auto bg-surface-2 p-4 font-mono text-xs leading-5 text-text-2">
             {JSON.stringify(run.blindedPacket, null, 2)}
           </pre>
+        </section>
+      ) : null}
+
+      {run.verificationChecks.length ? (
+        <section className="surface p-5">
+          <h2 className="label-caps">Verification facts</h2>
+          <p className="mt-3 max-w-[70ch] text-sm leading-6 text-text-2">
+            Deterministic checks recorded during this run — no model output here. For
+            repositories, commit activity is computed in plain code at check time so
+            dormant projects are visible as facts, not vibes.
+          </p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse font-mono text-xs">
+              <thead className="bg-surface-2 text-text-2">
+                <tr>
+                  <th className="p-3 text-left font-medium">check</th>
+                  <th className="p-3 text-left font-medium">target</th>
+                  <th className="p-3 text-left font-medium">source</th>
+                  <th className="p-3 text-left font-medium">result</th>
+                  <th className="p-3 text-left font-medium">activity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {run.verificationChecks.map((check, index) => (
+                  <tr className="border-t border-border" key={`${check.target}-${index}`}>
+                    <td className="p-3 text-text-2">{check.kind}</td>
+                    <td className="p-3 max-w-[280px] truncate" title={check.target}>
+                      {check.target}
+                    </td>
+                    <td className="p-3">
+                      <span className={check.source === "fixture" ? "badge badge-warn" : "badge"}>
+                        {check.source}
+                      </span>
+                    </td>
+                    <td className="p-3 text-text-2">
+                      {check.passed === null ? "not checked" : check.passed ? "passed" : "failed"}
+                    </td>
+                    <td className="p-3 text-text-2">{describeCheckActivity(check)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : null}
 

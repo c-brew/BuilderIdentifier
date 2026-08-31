@@ -9,11 +9,13 @@ import type {
   IdentityFacts,
   LinkKind,
   ProjectFacts,
+  RepoActivity,
   RepoFacts,
   UrlCheck,
 } from "./types";
 
 const TIMEOUT_MS = 6000;
+const COMMIT_SAMPLE_SIZE = 30; // GitHub /commits page size — bounds every window count
 const SAMPLE_FILE_CAP = 6000; // chars per sampled source file
 const BASE_HEADERS = {
   "User-Agent": "ai-builder-evaluator/0.1 (candidate-assessment demo)",
@@ -54,10 +56,9 @@ export async function fetchRepoFacts(repoUrl: string): Promise<RepoFacts> {
   if (!meta) return { repoUrl, exists: false };
 
   const [commits, contents, readme] = await Promise.all([
-    getJson<{ commit?: { author?: { date?: string } } }[]>(
-      `${api}/commits?per_page=30`,
-      headers,
-    ),
+    getJson<
+      { commit?: { author?: { date?: string }; committer?: { date?: string } } }[]
+    >(`${api}/commits?per_page=${COMMIT_SAMPLE_SIZE}`, headers),
     getJson<{ name: string; type: string; download_url: string | null }[]>(
       `${api}/contents`,
       headers,
@@ -81,17 +82,61 @@ export async function fetchRepoFacts(repoUrl: string): Promise<RepoFacts> {
     if (body) sampleFiles.push({ path: file.name, content: cap(body) });
   }
 
+  // Committer date over author date: rebases preserve author dates, so only
+  // the committer date says when a commit actually landed on the branch.
+  const commitDatesIso = (commits ?? []).map(
+    (c) => c.commit?.committer?.date ?? c.commit?.author?.date,
+  );
+
   return {
     repoUrl,
     exists: true,
     description: meta.description ?? undefined,
     language: meta.language ?? undefined,
-    recentCommitCount: commits?.length,
-    lastCommitIso: commits?.[0]?.commit?.author?.date,
+    activity:
+      commits === null
+        ? undefined // commits endpoint failed — absence of data, not zero activity
+        : computeRepoActivity(commitDatesIso, new Date(), COMMIT_SAMPLE_SIZE),
     readmePresent: Boolean(readme?.content),
     fileTree,
     sampleFiles,
   };
+}
+
+// Pure and order-independent: ages come from max/min over the parsed dates,
+// never from assuming the API returned newest-first. Future-dated commits
+// (clock skew, imported history) clamp to age 0 rather than going negative.
+export function computeRepoActivity(
+  commitDatesIso: (string | undefined)[],
+  checkedAt: Date,
+  sampleCap: number,
+): RepoActivity {
+  const times = commitDatesIso
+    .map((iso) => (iso ? new Date(iso).getTime() : NaN))
+    .filter((t) => Number.isFinite(t));
+
+  const now = checkedAt.getTime();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const inWindow = (t: number, days: number) => t >= now - days * DAY_MS && t <= now;
+
+  const activity: RepoActivity = {
+    checkedAtIso: checkedAt.toISOString(),
+    fetchedCommitCount: commitDatesIso.length,
+    sampleCapped: commitDatesIso.length >= sampleCap,
+    commitsLast90Days: times.filter((t) => inWindow(t, 90)).length,
+    commitsLast365Days: times.filter((t) => inWindow(t, 365)).length,
+  };
+
+  if (times.length > 0) {
+    const newest = Math.max(...times);
+    const oldest = Math.min(...times);
+    activity.lastCommitIso = new Date(newest).toISOString();
+    activity.oldestFetchedCommitIso = new Date(oldest).toISOString();
+    activity.daysSinceLastCommit = Math.max(0, Math.floor((now - newest) / DAY_MS));
+    activity.activitySpanDays = Math.floor((newest - oldest) / DAY_MS);
+  }
+
+  return activity;
 }
 
 export async function gatherProjectFacts(candidate: Candidate): Promise<ProjectFacts[]> {

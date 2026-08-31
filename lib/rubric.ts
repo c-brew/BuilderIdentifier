@@ -137,3 +137,10 @@ export const TARGET_ROLES = Object.keys(ROLES) as TargetRole[];
 // Equal-footing rule, included verbatim in the assessor's system prompt:
 export const EVIDENCE_PARITY_NOTE =
   "Evidence kind must not affect scoring. Demos, writeups, and case studies score on equal footing with code: the dimensions measure thinking and ownership, not programming-language fluency. Score what the evidence demonstrates, not the format it arrives in.";
+
+// Aging rule, included verbatim in the assessor's system prompt. Age is
+// surfaced to the human reviewer, never silently penalized by the model:
+// downweighting old evidence would disadvantage career-changers and
+// returners — the same class of harm blinding exists to prevent.
+export const EVIDENCE_AGING_NOTE =
+  "Evidence age must be reported, never silently penalized. When verification findings include dated activity (e.g. days since last commit, commit counts over recent windows), treat those numbers as deterministic facts. If activity is notably stale, say so plainly in the rationale and reflect the uncertainty in confidence — do not lower the score for age alone. Old evidence of strong thinking is still strong evidence; the human reviewer weighs currency.";

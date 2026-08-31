@@ -72,13 +72,28 @@ export interface UrlCheck {
   latencyMs: number;
 }
 
+// Deterministic commit-activity facts, computed in plain code at check time
+// (never by an LLM). Ages are relative to checkedAtIso, not to whenever a
+// model happens to read them. Window counts are computed over the fetched
+// commit sample only — when sampleCapped is true they are lower bounds.
+export interface RepoActivity {
+  checkedAtIso: string; // the "now" every age below was computed against
+  fetchedCommitCount: number; // size of the commit sample (API-capped)
+  sampleCapped: boolean; // sample hit the cap → window counts are "at least"
+  lastCommitIso?: string; // newest committer date in the sample
+  oldestFetchedCommitIso?: string; // bounds the observable window honestly
+  daysSinceLastCommit?: number;
+  commitsLast90Days: number;
+  commitsLast365Days: number;
+  activitySpanDays?: number; // newest − oldest fetched commit
+}
+
 export interface RepoFacts {
   repoUrl: string;
   exists: boolean;
   description?: string;
   language?: string;
-  recentCommitCount?: number;
-  lastCommitIso?: string;
+  activity?: RepoActivity;
   readmePresent?: boolean;
   fileTree?: string[];
   sampleFiles?: { path: string; content: string }[];
