@@ -1,7 +1,12 @@
 # Aging & Recency Analysis — Current Code State and Suggested Fixes
 
-**Status:** Analysis only — no code changes. Identifies every place the app mishandles
-(or cannot represent) the *age* of evidence, and what to fix in each component.
+**Status:** Priorities 1–4 (F1–F7, F12, F14) are implemented on this branch:
+deterministic `RepoActivity` in `checks.ts`, activity carried through the blinding
+boundary to the Assessor, the `EVIDENCE_AGING_NOTE` rubric rule, the now-anchor in
+the verifier input, title-based joins with index fallback, and the "Verification
+facts" table on the run view (backward-compatible with runs stored before this
+change). Priorities 5–6 (evidence/project date fields, intake date extraction, DB
+migration, dormant-repo fixtures) remain identified-only below.
 
 **Date of analysis:** 2026-08-31 · Branch audited: `main` (HEAD `6c1c93f`)
 

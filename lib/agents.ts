@@ -5,7 +5,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { callAgent, type CallAgentResult } from "./anthropic";
-import { EVIDENCE_PARITY_NOTE, ROLES, rubricFor } from "./rubric";
+import { EVIDENCE_AGING_NOTE, EVIDENCE_PARITY_NOTE, ROLES, rubricFor } from "./rubric";
 import type {
   AssessorResult,
   BlindedEvidencePacket,
@@ -41,10 +41,12 @@ const PROJECT_VERIFIER_SYSTEM = `You are the Project Verifier in a candidate-eva
 
 You receive PRE-FETCHED facts about a candidate's listed projects: URL liveness results, GitHub repository metadata, file trees, and capped source-file samples. You did not fetch anything yourself. Do not assume facts that are not in the input.
 
+The input's currentDateIso is the date the checks ran — treat it as "now" whenever you reason about any date in the input; never rely on your own sense of the current date. Repository facts may include a deterministic "activity" block (daysSinceLastCommit, commitsLast90Days, commitsLast365Days, activitySpanDays) computed at check time. Use those precomputed numbers as-is for any recency or iteration judgment. The commit windows cover only the fetched sample (fetchedCommitCount commits); when sampleCapped is true the window counts are lower bounds, not totals.
+
 For each project report:
 - liveStatus: "live" if a URL or repository verifiably responded; "down" if it was checked and failed; "no-url" if nothing was provided to check.
-- codeQualitySignals: concrete, observable signals only — structure, tests present, README quality, commit recency, signs of real iteration vs tutorial-following. Quote or reference what you actually see in the samples.
-- concerns: factual gaps or contradictions. A project with no repository is NOT inherently a concern — note "non-code evidence" neutrally.
+- codeQualitySignals: concrete, observable signals only — structure, tests present, README quality, commit activity and its age (cite the activity numbers), signs of real iteration vs tutorial-following. Quote or reference what you actually see in the samples.
+- concerns: factual gaps or contradictions. A project with no repository is NOT inherently a concern — note "non-code evidence" neutrally. Stale activity is a factual observation to report with its numbers, not a character judgment.
 
 You report facts and signals about artifacts. You never score or characterize the person.`;
 
@@ -54,7 +56,9 @@ export function runProjectVerifier(
   return callAgent({
     stage: "projectVerifier",
     system: PROJECT_VERIFIER_SYSTEM,
-    input: { projects: facts },
+    // currentDateIso anchors "now": without it the model would judge commit
+    // ages against its training-era sense of the present.
+    input: { currentDateIso: new Date().toISOString(), projects: facts },
     schema: ProjectVerifierSchema,
     summary: "Project artifacts interpreted from pre-fetched checks.",
   });
@@ -125,12 +129,25 @@ const AssessorSchema = z.object({
 
 // What the assessor sees of the verifier outputs: token-keyed findings only,
 // no URLs, no titles — nothing that could de-anonymize the packet.
+// Activity is the numeric subset of RepoActivity: relative ages and counts
+// only, no ISO timestamps — a number can't be searched; a commit date could.
+export interface BlindedRepoActivity {
+  daysSinceLastCommit?: number;
+  commitsLast90Days: number;
+  commitsLast365Days: number;
+  activitySpanDays?: number;
+  sampleCapped: boolean; // window counts are lower bounds when true
+}
+
 export interface BlindedVerifierFindings {
   projects: {
     token: string;
     liveStatus: "live" | "down" | "no-url";
     codeQualitySignals: string[];
     concerns: string[];
+    // null = no repository was checked for this project (e.g. non-code
+    // evidence) — the absence of activity data, never zero activity.
+    activity: BlindedRepoActivity | null;
   }[];
   identitySummary: string;
 }
@@ -154,6 +171,10 @@ Score the evidence against this role's rubric (1–5 per dimension):
 ${JSON.stringify(rubricFor(role), null, 2)}
 
 ${EVIDENCE_PARITY_NOTE}
+
+${EVIDENCE_AGING_NOTE}
+
+The verification findings may include a per-project "activity" block — deterministic commit-recency numbers (daysSinceLastCommit, commit counts over 90/365-day windows) computed in plain code at check time. A null activity block means no repository was checked for that project (common for non-code evidence) and says nothing about the candidate.
 
 Rules:
 - Score ONLY from the evidence packet and the verification findings provided. No outside knowledge, no assumptions about what the candidate "probably" did.
